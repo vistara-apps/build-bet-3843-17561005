@@ -1,23 +1,36 @@
-
 "use client"
 
+import { useState } from "react"
 import { Button } from "./ui/Button"
-import { Share2, MessageCircle } from "lucide-react"
-import { type MVPIdea, type PredictionMarket } from "@/lib/types"
+import { Share2, MessageCircle, Twitter, Copy, Check, Globe } from "lucide-react"
+import { type MVPIdea, type PredictionMarket } from "../lib/types"
 
-interface SocialShareButtonProps {
+export interface SocialShareButtonProps {
   idea: MVPIdea
   market?: PredictionMarket
-  variant?: 'farcaster' | 'generic'
+  variant?: 'farcaster' | 'twitter' | 'generic'
   text?: string
+  size?: 'sm' | 'md' | 'lg'
+  showIcon?: boolean
+  showLabel?: boolean
+  fullWidth?: boolean
+  className?: string
 }
 
 export function SocialShareButton({ 
   idea, 
   market, 
   variant = 'farcaster',
-  text 
+  text,
+  size = 'md',
+  showIcon = true,
+  showLabel = true,
+  fullWidth = false,
+  className
 }: SocialShareButtonProps) {
+  const [copied, setCopied] = useState(false)
+  const [isSharing, setIsSharing] = useState(false)
+
   const generateShareText = () => {
     if (text) return text
 
@@ -38,42 +51,87 @@ What do you think? Will it succeed? 🤔
 #BuildAndBet #MVPIdeas #Predictions`
   }
 
-  const handleShare = () => {
-    const shareText = generateShareText()
-    const url = `${window.location.origin}${market ? `/market/${market.marketId}` : `/idea/${idea.ideaId}`}`
-    
-    if (variant === 'farcaster') {
-      // For Farcaster, we would integrate with the Farcaster SDK
-      // For now, we'll copy to clipboard
-      navigator.clipboard.writeText(`${shareText}\n\n${url}`)
-      alert('Share text copied to clipboard!')
-    } else {
-      // Generic sharing
-      if (navigator.share) {
-        navigator.share({
-          title: idea.title,
-          text: shareText,
-          url: url,
-        })
+  const handleShare = async () => {
+    setIsSharing(true)
+    try {
+      const shareText = generateShareText()
+      const url = `${window.location.origin}${market ? `/market/${market.marketId}` : `/idea/${idea.ideaId}`}`
+      
+      if (variant === 'farcaster') {
+        // For Farcaster, we would integrate with the Farcaster SDK
+        // For now, we'll copy to clipboard
+        await navigator.clipboard.writeText(`${shareText}\n\n${url}`)
+        setCopied(true)
+        setTimeout(() => setCopied(false), 2000)
+      } else if (variant === 'twitter') {
+        // Open Twitter share dialog
+        const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(url)}`
+        window.open(twitterUrl, '_blank')
       } else {
-        navigator.clipboard.writeText(`${shareText}\n\n${url}`)
-        alert('Share text copied to clipboard!')
+        // Generic sharing
+        if (navigator.share) {
+          await navigator.share({
+            title: idea.title,
+            text: shareText,
+            url: url,
+          })
+        } else {
+          await navigator.clipboard.writeText(`${shareText}\n\n${url}`)
+          setCopied(true)
+          setTimeout(() => setCopied(false), 2000)
+        }
       }
+    } catch (error) {
+      console.error('Error sharing:', error)
+    } finally {
+      setIsSharing(false)
     }
   }
 
-  const icon = variant === 'farcaster' ? MessageCircle : Share2
-  const label = variant === 'farcaster' ? 'Share on Farcaster' : 'Share'
+  const getIcon = () => {
+    if (copied) return Check
+    
+    switch (variant) {
+      case 'farcaster': return MessageCircle
+      case 'twitter': return Twitter
+      default: return Share2
+    }
+  }
+  
+  const getLabel = () => {
+    if (copied) return 'Copied!'
+    
+    switch (variant) {
+      case 'farcaster': return 'Share on Farcaster'
+      case 'twitter': return 'Share on Twitter'
+      default: return 'Share'
+    }
+  }
+  
+  const getVariant = () => {
+    switch (variant) {
+      case 'farcaster': return 'primary'
+      case 'twitter': return 'accent'
+      default: return 'secondary'
+    }
+  }
+
+  const Icon = getIcon()
+  const label = getLabel()
+  const buttonVariant = getVariant()
 
   return (
     <Button
-      variant="secondary"
-      size="sm"
+      variant={buttonVariant}
+      size={size}
       onClick={handleShare}
-      className="flex items-center gap-2"
+      className={className}
+      isLoading={isSharing}
+      fullWidth={fullWidth}
+      leftIcon={showIcon ? <Icon size={size === 'sm' ? 14 : 16} /> : undefined}
+      aria-label={label}
     >
-      {icon && <icon className="w-4 h-4" />}
-      {label}
+      {showLabel && label}
     </Button>
   )
 }
